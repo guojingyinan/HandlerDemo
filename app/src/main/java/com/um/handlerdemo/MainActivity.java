@@ -1,6 +1,7 @@
 package com.um.handlerdemo;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -11,6 +12,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
+import java.lang.ref.WeakReference;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -41,9 +44,7 @@ public class MainActivity extends AppCompatActivity {
                 case MSG_UPDATE:
                     updateUI(msg.arg1);
                 break;
-
             }
-
         }
     };
 
@@ -57,13 +58,20 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private class MyTask extends AsyncTask<String, Integer, String> {
+     static class MyTask extends AsyncTask<String, Integer, String> {
 
+        private final WeakReference<MainActivity> activityWeakReference;
+        MainActivity mainActivity;
+
+       public MyTask(MainActivity activity){
+           this.activityWeakReference = new WeakReference<MainActivity>(activity);
+       }
         @Override
         protected void onPreExecute() {
             Log.d(TAG, "onPreExecute: ");
             super.onPreExecute();
-            mTvProgress.setText(R.string.loading);
+            mainActivity = activityWeakReference.get();
+            mainActivity.mTvProgress.setText(R.string.loading);
         }
 
         @Override
@@ -87,21 +95,22 @@ public class MainActivity extends AppCompatActivity {
         protected void onProgressUpdate(Integer... values) {
             Log.d(TAG, "onProgressUpdate: ");
             super.onProgressUpdate(values);
-            updateUI(values[0]);
+            mainActivity.mProgressBar.setProgress(values[0]);
+            mainActivity.mTvProgress.setText("loading ..." + values[0] + "%");
         }
 
         @Override
         protected void onPostExecute(String s) {
             Log.d(TAG, "onPostExecute: ");
             super.onPostExecute(s);
-            mTvProgress.setText("加载完成");
+            mainActivity.mTvProgress.setText("加载完成");
         }
 
         @Override
         protected void onCancelled() {
             Log.d(TAG, "onCancelled: ");
             super.onCancelled();
-            mTvProgress.setText("已取消");
+            mainActivity.mTvProgress.setText("已取消");
         }
     }
 
@@ -116,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
     public void onViewClicked(View view) {
         switch (view.getId()) {
             case R.id.btn_load:
-                myTask = new MyTask();//AsyncTask方式
+                myTask = new MyTask(this);//AsyncTask方式
                 myTask.execute();
                 break;
             case R.id.btn_load_2: //Handler方式
@@ -145,5 +154,11 @@ public class MainActivity extends AppCompatActivity {
                 myTask.cancel(true);
                 break;
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        myTask.cancel(true);
     }
 }
